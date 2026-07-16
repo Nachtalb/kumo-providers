@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "providers": [
+    {
+      "id": "weebcentral",
+      "name": "Weeb Central",
+      "version": "1.0.0",
+      "langs": [
+        "en"
+      ],
+      "nsfw": false,
+      "requires_verification": false,
+      "created": "2026-07-17T01:10:01+02:00",
+      "updated": "2026-07-17T01:10:01+02:00",
+      "url": "providers/weebcentral/provider.lua",
+      "sha256": "e1d403df255ad1deef017cc5f12bcb1324eccec4a2fadaf9ac3030b4c3ab4dc4",
+      "icon": "providers/weebcentral/icon.avif",
+      "icon_sha256": "3d5788efa7d26e17e57649ef778be7ffad4198d677c5f0ecade8bd0504155f3f",
+      "ua_hint": "chrome"
+    }
+  ]
+}

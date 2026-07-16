@@ -1,0 +1,46 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    # GitHub-hosted (ubuntu-latest): this repo has no self-hosted runner (those
+    # are scoped to Nachtalb/kumo), and the job is a trivial ~1-min Node index
+    # check — cheap enough to run on GitHub. Doubles as a live probe of whether
+    # the Actions budget has cleared.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # full history so the index generator can read git created/updated dates
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Regenerate index.json
+        run: node scripts/build-index.mjs
+
+      - name: Validate index.json is JSON
+        run: node -e 'JSON.parse(require("fs").readFileSync("index.json"))'
+
+      - name: Fail if index.json is out of date
+        run: |
+          git diff --exit-code index.json \
+            || { echo "::error::index.json is stale — run 'node scripts/build-index.mjs' and commit the result"; exit 1; }
+
+      # TODO: load each provider.lua in the kumo-core sandbox + validate contract/schema against recorded fixtures
+      # The sandbox validation binary (kumo-core) does not exist yet. When it
+      # lands, this step should, for every providers/*/provider.lua:
+      #   - load it in the sandboxed Lua 5.4 runtime (io/os/load stripped,
+      #     instruction budget enforced),
+      #   - assert the metadata header parses,
+      #   - run popular/latest/search/details/pages against recorded fixtures,
+      #   - schema-validate the returned tables (see docs/authoring.md).
+      # e.g.  kumo-core validate providers/*/provider.lua --fixtures fixtures/
+      - name: Sandbox contract validation (placeholder)
+        run: echo "sandbox validation not wired up yet — see TODO above"
