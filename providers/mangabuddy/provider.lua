@@ -1,6 +1,6 @@
 -- @id mangabuddy
 -- @name MangaK
--- @version 1.0.0
+-- @version 1.1.0
 -- @langs en
 -- @nsfw false
 -- @rate 3/1s
@@ -23,6 +23,30 @@
 local API = "https://api.mangak.io"
 local SITE = "https://mangak.io"
 
+-- Filter surface (ported from server/providers/mangabuddy.js module.exports;
+-- BuddyComplex sort keys from keiyoushi Filters.kt SortFilter).
+local SORTS = {
+  { key = "latest", label = "Latest" },
+  { key = "popular", label = "Popular" },
+  { key = "rating", label = "Rating" },
+  { key = "created_at", label = "Newest" },
+}
+local STATUSES = {
+  { key = "", label = "All" },
+  { key = "ongoing", label = "Ongoing" },
+  { key = "completed", label = "Completed" },
+  { key = "hiatus", label = "Hiatus" },
+  { key = "cancelled", label = "Cancelled" },
+}
+local function is_sort(k)
+  for _, s in ipairs(SORTS) do if s.key == k then return true end end
+  return false
+end
+
+function meta()
+  return { sorts = SORTS, statuses = STATUSES }
+end
+
 local function parse_status(s)
   local t = tostring(s or ""):lower()
   if t == "ongoing" then return "Ongoing"
@@ -34,6 +58,12 @@ local function parse_status(s)
 end
 
 local HEADERS = { Origin = SITE, Accept = "application/json" }
+
+local function urlencode(s)
+  return (tostring(s):gsub("[^%w%-%.%_%~]", function(c)
+    return string.format("%%%02X", c:byte())
+  end))
+end
 
 local function api_get(url)
   local r = http.get(url, { referer = SITE .. "/", headers = HEADERS })
@@ -87,14 +117,33 @@ function latest(page, opts)
 end
 
 function search(query, page, filters, opts)
-  local q = ""
-  if query and query ~= "" then
-    local clean = query:gsub("[^%w%s%-]", ""):sub(1, 50)
-    q = "q=" .. clean:gsub(" ", "%%20") .. "&page=" .. page .. "&limit=24"
+  filters = filters or {}
+  local parts = { "page=" .. page, "limit=24" }
+  local q = query and util.trim(query) or ""
+  if q ~= "" then
+    -- keep only word chars, spaces and hyphens; cap at 50; spaces -> %20
+    local clean = q:gsub("[^%w%s%-]", ""):sub(1, 50)
+    parts[#parts + 1] = "q=" .. clean:gsub(" ", "%%20")
   else
-    q = "sort=latest&page=" .. page .. "&limit=24"
+    -- sort precedence: filters.sort, else opts.sort, else old JS default 'latest'.
+    local sort = filters.sort
+    if not (sort and is_sort(sort)) then sort = opts and opts.sort end
+    if not (sort and is_sort(sort)) then sort = "latest" end
+    parts[#parts + 1] = "sort=" .. sort
   end
-  return list_req(q)
+  -- status (old JS applies it regardless of query presence)
+  if filters.status and filters.status ~= "" then
+    parts[#parts + 1] = "status=" .. urlencode(filters.status)
+  end
+  -- included genres joined by comma (old JS: keys where value === 1)
+  local incl = {}
+  for g, mode in pairs(filters.genres or {}) do
+    if mode == 1 or mode == true then incl[#incl + 1] = g end
+  end
+  if #incl > 0 then
+    parts[#parts + 1] = "genres=" .. urlencode(table.concat(incl, ","))
+  end
+  return list_req(table.concat(parts, "&"))
 end
 
 -- Build a short search query from a slug's leading words (<=45 chars).
@@ -207,8 +256,4 @@ end
 
 function url_for(id)
   return SITE .. "/" .. id
-end
-
-function filters()
-  return {}
 end

@@ -1,6 +1,6 @@
 -- @id mangapill
 -- @name Mangapill
--- @version 1.0.0
+-- @version 1.1.0
 -- @langs en
 -- @nsfw false
 -- @rate 4/1s
@@ -17,6 +17,50 @@
 -- The host namespaces "mangapill:" around every call.
 
 local BASE = "https://mangapill.com"
+
+local function urlencode(s)
+  return (tostring(s):gsub("[^%w%-%.%_%~]", function(c)
+    return string.format("%%%02X", c:byte())
+  end))
+end
+
+-- Filter surface (ported from server/providers/mangapill.js).
+local SORTS = { { key = "", label = "Default" } }
+local STATUSES = {
+  { key = "", label = "All" },
+  { key = "publishing", label = "Publishing" },
+  { key = "finished", label = "Finished" },
+  { key = "on hiatus", label = "On hiatus" },
+  { key = "discontinued", label = "Discontinued" },
+}
+local GENRES = {
+  "action", "adventure", "cars", "comedy", "dementia", "demons", "drama",
+  "ecchi", "fantasy", "game", "gender-bender", "harem", "historical", "horror",
+  "isekai", "josei", "kids", "magic", "martial-arts", "mecha", "military",
+  "music", "mystery", "parody", "police", "psychological", "romance", "samurai",
+  "school", "sci-fi", "seinen", "shoujo", "shounen", "slice-of-life", "space",
+  "sports", "super-power", "supernatural", "thriller", "tragedy", "vampire",
+  "yaoi", "yuri",
+}
+-- a handful of mangapill genres carry a hyphen / special-case in the on-site name
+local GENRE_NAME = {
+  ["sci-fi"] = "Sci-Fi", ["super-power"] = "Super Power",
+  ["gender-bender"] = "Gender Bender", ["martial-arts"] = "Martial Arts",
+  ["slice-of-life"] = "Slice of Life",
+}
+-- toGenre(g): map slug -> the site's display name (Title-Case each hyphen part).
+local function to_genre(g)
+  if GENRE_NAME[g] then return GENRE_NAME[g] end
+  local parts = {}
+  for p in tostring(g):gmatch("[^%-]+") do
+    parts[#parts + 1] = p:sub(1, 1):upper() .. p:sub(2)
+  end
+  return table.concat(parts, " ")
+end
+
+function meta()
+  return { sorts = SORTS, statuses = STATUSES, genres = GENRES, genreMode = "multi", multiChapter = true }
+end
 
 -- mangapill's cards duplicate the title in the img alt ("Chainsaw Man Chainsaw
 -- Man"); collapse an exact "X X" into "X".
@@ -58,24 +102,31 @@ local function parse_list(doc)
   return items
 end
 
-local function list_page(query, page, status)
-  local q = "q=" .. (query or "") .. "&type=&status=" .. (status or "")
+local function list_page(query, page, status, genres)
+  local q = "q=" .. urlencode(query or "")
+    .. "&type="
+    .. "&status=" .. urlencode(status or "")
     .. "&page=" .. page
+  -- tri-state genres: append &genre=<toGenre(g)> for each INCLUDED (mode==1).
+  for g, mode in pairs(genres or {}) do
+    if mode == 1 then q = q .. "&genre=" .. urlencode(to_genre(g)) end
+  end
   local r = http.get(BASE .. "/search?" .. q, { referer = BASE .. "/" })
   local items = parse_list(html.parse(r.body))
   return { items = items, has_next = #items > 0 }
 end
 
 function popular(page, opts)
-  return list_page("", page, "")
+  return list_page("", page, "", nil)
 end
 
 function latest(page, opts)
-  return list_page("", page, "")
+  return list_page("", page, "", nil)
 end
 
 function search(query, page, filters, opts)
-  return list_page(query or "", page, "")
+  filters = filters or {}
+  return list_page(query or "", page, filters.status or "", filters.genres)
 end
 
 function details(id, opts)
@@ -159,8 +210,4 @@ end
 
 function url_for(id)
   return BASE .. "/manga/" .. id
-end
-
-function filters()
-  return {}
 end

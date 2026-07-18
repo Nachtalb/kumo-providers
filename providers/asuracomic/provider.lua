@@ -1,6 +1,6 @@
 -- @id asuracomic
 -- @name Asura Scans
--- @version 1.0.0
+-- @version 1.1.0
 -- @langs en
 -- @nsfw false
 -- @rate 3/1s
@@ -20,6 +20,29 @@
 -- /comics/<slug>/chapter/<n>.
 
 local BASE = "https://asurascans.com"
+
+-- Filter surface (ported from server/providers/asuracomic.js). order= presence
+-- flips SSR ordering; 'update' sends order=update, 'popular' the default grid.
+local SORTS = {
+  { key = "update", label = "Latest" },
+  { key = "popular", label = "Popular" },
+}
+local STATUSES = {
+  { key = "all", label = "All" },
+  { key = "ongoing", label = "Ongoing" },
+  { key = "completed", label = "Completed" },
+  { key = "hiatus", label = "Hiatus" },
+  { key = "dropped", label = "Dropped" },
+}
+local GENRES = { "action", "fantasy", "adventure", "drama", "romance", "comedy" }
+
+function meta()
+  return { sorts = SORTS, statuses = STATUSES, genres = GENRES, genreMode = "multi", multiChapter = true }
+end
+
+local function urlencode(s)
+  return (s:gsub("[^%w%-%.%_%~]", function(c) return string.format("%%%02X", c:byte()) end))
+end
 
 local function parse_status(t)
   local s = (t or ""):lower()
@@ -60,15 +83,19 @@ local function parse_browse(doc)
   return items
 end
 
-local function fetch_list(query, page, status, order)
+local function fetch_list(query, page, status, order, genres)
   local qs = {}
   if query and query ~= "" then
-    qs[#qs + 1] = "search=" .. query:gsub("[^%w%-%.%_%~]", function(c)
-      return string.format("%%%02X", c:byte())
-    end)
+    qs[#qs + 1] = "search=" .. urlencode(query)
   end
+  -- genres: {slug: 1} include map -> comma-joined genres= param
+  local gsel = {}
+  for g, mode in pairs(genres or {}) do
+    if mode == 1 or mode == true then gsel[#gsel + 1] = urlencode(g) end
+  end
+  if #gsel > 0 then qs[#qs + 1] = "genres=" .. table.concat(gsel, ",") end
   if status and status ~= "" and status ~= "all" then
-    qs[#qs + 1] = "status=" .. status
+    qs[#qs + 1] = "status=" .. urlencode(status)
   end
   if order == "update" then qs[#qs + 1] = "order=update" end
   qs[#qs + 1] = "page=" .. (page or 1)
@@ -78,15 +105,20 @@ local function fetch_list(query, page, status, order)
 end
 
 function popular(page, opts)
-  return fetch_list("", page, "all", "popular")
+  local order = (opts and opts.sort == "update") and "update" or "popular"
+  return fetch_list("", page, "all", order, nil)
 end
 
 function latest(page, opts)
-  return fetch_list("", page, "all", "update")
+  return fetch_list("", page, "all", "update", nil)
 end
 
 function search(query, page, filters, opts)
-  return fetch_list(query or "", page, "all", "popular")
+  filters = filters or {}
+  -- sort: filter sort, else opts.sort; 'update' -> order= view, else default grid
+  local sort = filters.sort or (opts and opts.sort) or "popular"
+  local order = (sort == "update") and "update" or "popular"
+  return fetch_list(query or "", page, filters.status, order, filters.genres)
 end
 
 function details(id, opts)
@@ -191,8 +223,4 @@ end
 
 function url_for(id)
   return BASE .. "/comics/" .. id
-end
-
-function filters()
-  return {}
 end

@@ -1,7 +1,7 @@
 -- @id imhentai
 -- @name IMHentai
--- @version 1.0.0
--- @langs en
+-- @version 1.1.0
+-- @langs en,ja,es,fr,ko,de,ru
 -- @nsfw true
 -- @rate 2/1s
 -- @ua chrome
@@ -15,6 +15,35 @@
 --   gallery: /gallery/<id>/
 
 local BASE = "https://imhentai.xxx"
+
+-- galleryadults language paths (first selected code only).
+local LANG_PATHS = { en = "english", ja = "japanese", es = "spanish", fr = "french", ko = "korean", de = "german", ru = "russian" }
+local LANG_LABELS = { en = "English", ja = "Japanese", es = "Spanish", fr = "French", ko = "Korean", de = "German", ru = "Russian" }
+local SORTS = {
+  { key = "", label = "Popular" },
+  { key = "latest", label = "Latest" },
+}
+local GENRES = {
+  "big-breasts", "sole-female", "sole-male", "nakadashi", "anal", "group",
+  "stockings", "blowjob", "ahegao", "schoolgirl-uniform", "glasses", "yaoi",
+  "yuri", "futanari", "milf", "netorare", "incest", "harem", "full-color",
+  "ffm-threesome", "comedy", "lolicon", "shotacon", "mind-break", "x-ray",
+}
+local function lang_path(opts)
+  local langs = opts and opts.langs
+  if type(langs) == "table" and #langs > 0 then return LANG_PATHS[langs[1]] or "" end
+  return ""
+end
+
+function meta()
+  local languages = {}
+  for code, _ in pairs(LANG_PATHS) do languages[#languages + 1] = { code = code, label = LANG_LABELS[code] or code } end
+  table.sort(languages, function(a, b) return a.label < b.label end)
+  return {
+    sorts = SORTS, genres = GENRES, genreMode = "single", multiChapter = false,
+    languages = languages, defaultLangs = {},
+  }
+end
 
 local function urlencode(s)
   return (tostring(s):gsub("[^%w%-%.%_%~]", function(c)
@@ -58,15 +87,36 @@ local function list_page(url)
 end
 
 function popular(page, opts)
+  -- galleryadults: /language/<name>/popular/?page=N when a language is chosen
+  local lp = lang_path(opts)
+  if lp ~= "" then
+    return list_page(BASE .. "/language/" .. lp .. "/popular/?page=" .. page)
+  end
   return list_page(BASE .. "/?page=" .. page)
 end
 
 function latest(page, opts)
+  local lp = lang_path(opts)
+  if lp ~= "" then
+    return list_page(BASE .. "/language/" .. lp .. "/?page=" .. page)
+  end
   return list_page(BASE .. "/?page=" .. page)
 end
 
 function search(query, page, filters, opts)
-  local key = util.trim(query or "")
+  filters = filters or {}
+  -- imhentai's reliable filter is the free-text `key` param; fold a selected
+  -- genre into it as a keyword (the /tags/ browse path is inconsistent).
+  -- Language also joins the terms (IMHentai.kt buildQueryString adds mangaLang).
+  local terms = {}
+  local qt = util.trim(query or "")
+  if qt ~= "" then terms[#terms + 1] = qt end
+  for g, mode in pairs(filters.genres or {}) do
+    if mode == 1 then terms[#terms + 1] = (g:gsub("%-", " ")) end
+  end
+  local lp = lang_path(opts)
+  if lp ~= "" then terms[#terms + 1] = lp end
+  local key = table.concat(terms, " ")
   if key == "" then return popular(page, opts) end
   return list_page(BASE .. "/search/?key=" .. urlencode(key) .. "&page=" .. page)
 end
@@ -158,8 +208,4 @@ end
 
 function url_for(id)
   return BASE .. "/gallery/" .. id .. "/"
-end
-
-function filters()
-  return {}
 end

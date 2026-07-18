@@ -1,6 +1,6 @@
 -- @id dynasty
 -- @name Dynasty Scans
--- @version 1.0.0
+-- @version 1.1.0
 -- @langs en
 -- @nsfw false
 -- @rate 3/1s
@@ -18,6 +18,30 @@
 -- Local ids: manga id = "<slug>", chapter id = "<cslug>".
 
 local BASE = "https://dynasty-scans.com"
+
+-- Filter surface (ported from server/providers/dynasty.js).
+local SORTS = { { key = "", label = "Default" } }
+local STATUSES = {
+  { key = "", label = "All" },
+  { key = "ongoing", label = "Ongoing" },
+  { key = "completed", label = "Completed" },
+}
+-- Common Dynasty tag slugs. genreMode 'multi', but see search(): the site's
+-- advanced filter keys on numeric tag IDs, not slugs, so these are exported for
+-- display only and are NOT applied as a query filter.
+local GENRES = {
+  "yuri", "comedy", "romance", "drama", "school_life", "slice_of_life",
+  "fantasy", "action", "four_koma", "anthology", "full_color", "crossdressing",
+  "delinquents", "idol", "office_lady", "supernatural", "tragedy", "horror",
+  "age_gap", "adult",
+}
+
+function meta()
+  return {
+    sorts = SORTS, statuses = STATUSES, genres = GENRES,
+    genreMode = "multi", multiChapter = true,
+  }
+end
 
 local function parse_status(t)
   local s = (t or ""):lower()
@@ -92,6 +116,10 @@ function latest(page, opts)
 end
 
 function search(query, page, filters, opts)
+  -- NOTE: `status`/`genres` are intentionally ignored — Dynasty's advanced
+  -- filter keys on numeric tag IDs, not the slugs we can expose, so applying
+  -- them would require an extra id-lookup round trip per tag. Text query only.
+  -- (The only sort is "" (Default), so there is nothing to wire for sort either.)
   return browse(query or "", page)
 end
 
@@ -205,8 +233,4 @@ end
 
 function url_for(id)
   return BASE .. "/series/" .. id
-end
-
-function filters()
-  return {}
 end

@@ -1,6 +1,6 @@
 -- @id weebcentral
 -- @name Weeb Central
--- @version 1.0.0
+-- @version 1.1.0
 -- @langs en
 -- @nsfw false
 -- @rate 4/1s
@@ -16,16 +16,56 @@
 local BASE = "https://weebcentral.com"
 local PER = 24
 
--- /search/data returns a fragment of series cards when asked via htmx.
-local function list_data(opts)
+local function urlencode(s)
+  return (s:gsub("[^%w%-%.%_%~]", function(c) return string.format("%%%02X", c:byte()) end))
+end
+
+-- Filter surface (ported from server/providers/weebcentral.js).
+local SORTS = {
+  { key = "Popularity", label = "Popularity" },
+  { key = "Latest Updates", label = "Latest" },
+  { key = "Alphabet", label = "Title (A-Z)" },
+  { key = "Best Match", label = "Best match" },
+}
+local STATUSES = {
+  { key = "all", label = "All" },
+  { key = "Ongoing", label = "Ongoing" },
+  { key = "Complete", label = "Completed" },
+  { key = "Hiatus", label = "Hiatus" },
+  { key = "Canceled", label = "Cancelled" },
+}
+local GENRES = {
+  "action", "adventure", "comedy", "drama", "ecchi", "fantasy", "harem",
+  "horror", "isekai", "josei", "mecha", "mystery", "psychological", "romance",
+  "school-life", "sci-fi", "seinen", "shoujo", "shounen", "slice-of-life",
+  "sports", "supernatural", "thriller", "tragedy", "yaoi", "yuri",
+}
+local function is_sort(k)
+  for _, s in ipairs(SORTS) do if s.key == k then return true end end
+  return false
+end
+
+function meta()
+  return { sorts = SORTS, statuses = STATUSES, genres = GENRES, genreMode = "multi", multiChapter = true }
+end
+
+-- /search/data returns a fragment of series cards when asked via htmx. Applies
+-- sort, text, status (included_status) and tri-state genres (included_tag /
+-- excluded_tag), matching the old JS listData().
+local function list_data(o)
+  o = o or {}
   local q = "limit=" .. PER
-    .. "&offset=" .. ((opts.page - 1) * PER)
-    .. "&sort=" .. (opts.sort or "Popularity"):gsub(" ", "%%20")
-    .. "&order=Descending&official=Any&display_mode=Full%20Display"
-  if opts.text and opts.text ~= "" then
-    q = q .. "&text=" .. opts.text:gsub("[^%w%-%.%_%~]", function(c)
-      return string.format("%%%02X", c:byte())
-    end)
+    .. "&offset=" .. (((o.page or 1) - 1) * PER)
+    .. "&sort=" .. urlencode(o.sort or "Popularity")
+    .. "&order=Descending&official=Any&display_mode=" .. urlencode("Full Display")
+  if o.text and o.text ~= "" then q = q .. "&text=" .. urlencode(o.text) end
+  if o.status and o.status ~= "" and o.status ~= "all" then
+    q = q .. "&included_status=" .. urlencode(o.status)
+  end
+  for g, mode in pairs(o.genres or {}) do
+    local name = (g:gsub("%-", " "))
+    if mode == 1 then q = q .. "&included_tag=" .. urlencode(name)
+    elseif mode == -1 then q = q .. "&excluded_tag=" .. urlencode(name) end
   end
   local r = http.get(BASE .. "/search/data?" .. q, {
     referer = BASE .. "/",
@@ -61,7 +101,8 @@ local function list_data(opts)
 end
 
 function popular(page, opts)
-  return list_data({ page = page, sort = "Popularity" })
+  local sort = (opts and opts.sort and is_sort(opts.sort)) and opts.sort or "Popularity"
+  return list_data({ page = page, sort = sort })
 end
 
 function latest(page, opts)
@@ -69,9 +110,16 @@ function latest(page, opts)
 end
 
 function search(query, page, filters, opts)
-  local sort = "Best Match"
-  if query == "" then sort = "Popularity" end
-  return list_data({ page = page, sort = sort, text = query })
+  filters = filters or {}
+  -- sort precedence: explicit filter sort, else opts.sort, else Best Match for a
+  -- query / Popularity for an empty browse.
+  local sort = filters.sort
+  if not (sort and is_sort(sort)) then sort = (opts and opts.sort) end
+  if not (sort and is_sort(sort)) then sort = (query ~= "" and "Best Match" or "Popularity") end
+  return list_data({
+    page = page, sort = sort, text = query,
+    status = filters.status, genres = filters.genres,
+  })
 end
 
 function details(id, opts)
@@ -165,10 +213,4 @@ end
 
 function url_for(id)
   return BASE .. "/series/" .. id
-end
-
-function filters()
-  -- site has sort/status/genre filters; declarative schema lands with the
-  -- filters()/settings() milestone of #25
-  return {}
 end

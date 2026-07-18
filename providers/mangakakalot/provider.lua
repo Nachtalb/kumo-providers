@@ -1,6 +1,6 @@
 -- @id mangakakalot
 -- @name Mangakakalot
--- @version 1.0.0
+-- @version 1.1.0
 -- @langs en
 -- @nsfw false
 -- @rate 4/1s
@@ -20,6 +20,72 @@
 
 local BASE = "https://www.mangakakalove.com"
 local ITEM_SEL = "div.list-truyen-item-wrap, div.list-comic-item-wrap, .panel_story_list .story_item"
+
+-- Filter surface (ported from server/providers/mangakakalot.js module.exports;
+-- keiyoushi lib-multisrc/mangabox Filters.kt). The .gg primary Cloudflare-
+-- challenges server clients, so the adapter targets the mangakakalove.com
+-- mirror. MIRRORS is exposed in meta() for display only — this Lua adapter does
+-- NOT switch base hosts (BASE stays mangakakalove.com); mirror failover was a
+-- Node-side fetchWithMirrors concern the engine doesn't yet replicate.
+local MIRRORS = { "https://www.mangakakalove.com", "https://www.mangakakalot.gg" }
+local SORTS = {
+  { key = "latest", label = "Latest" },
+  { key = "newest", label = "Newest" },
+  { key = "topview", label = "Top read" },
+}
+local STATUSES = {
+  { key = "all", label = "All" },
+  { key = "completed", label = "Completed" },
+  { key = "ongoing", label = "Ongoing" },
+}
+-- Full MangaBox category set, ported verbatim from Filters.kt getGenreFilters().
+-- MangaBox genre is single-select (Filter.Select) — pick exactly one (or none).
+local GENRES = {
+  "4-koma", "action", "adaptation", "adult", "adventure", "age-gap", "ai-art",
+  "aliens", "animals", "anthology", "artbook", "avant-garde", "award-winning",
+  "beasts", "boys-love", "blackmail", "bloody", "bodyswap", "brocon-siscon",
+  "cars", "cartoon", "cheating-infidelity", "childhood-friends", "college-life",
+  "comedy", "comic", "contest-winning", "cooking", "creators", "crime",
+  "crossdressing", "cultivation", "death-game", "degeneratemc", "delinquents",
+  "dementia", "demons", "doujinshi", "drama", "ecchi", "employee", "erotica",
+  "fan-colored", "fantasy", "female-protagonists", "fetish", "full-color",
+  "game", "gender-bender", "genderswap", "ghosts", "girls-love", "gore",
+  "gourmet", "graphic-novel", "gyaru", "harem", "heartwarming", "hentai",
+  "historical", "horror", "imageset", "incest", "informative", "isekai",
+  "iyashikei", "josei", "kids", "korean", "liexing", "loli", "long-strip",
+  "mafia", "magic", "magical-girls", "mahou-shoujo", "male-protagonists",
+  "manga", "mangatoon", "manhua", "manhwa", "martial-arts", "master-servant",
+  "mature", "mecha", "medical", "military", "monsters", "monster-girls",
+  "murim", "music", "mystery", "netorare", "netori", "ninja", "non-human",
+  "office", "office-workers", "official-colored", "old-people", "omegaverse",
+  "one-shot", "others", "overpowered", "parody", "philosophical",
+  "ping-ping-jun", "police", "pornographic", "post-apocalyptic", "psychological",
+  "reincarnation", "revenge", "reverse", "reverse-harem", "romance",
+  "royal-family", "royalty", "samurai", "school", "school-life", "sci-fi",
+  "science-fiction", "seinen", "self-published", "sexual-violence", "shota",
+  "shoujo", "shoujo-ai", "shounen", "shounen-ai", "showbiz", "slice-of-life",
+  "smut", "sm-bdsm", "soft-yaoi", "space", "sports", "spy", "step-family",
+  "super-power", "superhero", "supernatural", "survival", "suspense", "system",
+  "teacher-student", "thriller", "time-travel", "traditional-games", "tragedy",
+  "vampires", "video-games", "villainess", "violence", "virtual-reality",
+  "web-comic", "webtoons", "western", "wuxia", "xianxia", "yaoi", "yuri",
+  "zombies",
+}
+local function is_sort(k)
+  for _, s in ipairs(SORTS) do if s.key == k then return true end end
+  return false
+end
+
+function meta()
+  return {
+    sorts = SORTS,
+    statuses = STATUSES,
+    genres = GENRES,
+    genreMode = "single",
+    multiChapter = true,
+    mirrors = MIRRORS,
+  }
+end
 
 local function slug_from(href)
   return (href or ""):match("/manga/([^/?#]+)")
@@ -75,12 +141,38 @@ end
 
 function search(query, page, filters, opts)
   local q = util.trim(query or "")
+  filters = filters or {}
   local path
   if q ~= "" then
+    -- /search/story/<normalized> — lowercase, non-alnum runs -> _, trim edges
     local norm = q:lower():gsub("[^a-z0-9]+", "_"):gsub("^_+", ""):gsub("_+$", "")
     path = "/search/story/" .. norm .. "?page=" .. page
   else
-    path = "/manga-list/latest-manga?page=" .. page
+    -- No text query. Two cases:
+    --   * a specific genre selected -> /genre/<g>?type=<sort>&state=<status>
+    --   * no genre -> route through /manga-list/* by sort/status.
+    -- The mirror Cloudflare-challenges (429) the /genre/all listing from
+    -- datacenter IPs while leaving /manga-list/* and per-genre pages alone, so
+    -- the "all" path must NEVER hit /genre/all.
+    -- sort precedence: filters.sort, else opts.sort, else old JS default 'latest'.
+    local sort = filters.sort
+    if not (sort and is_sort(sort)) then sort = opts and opts.sort end
+    if not (sort and is_sort(sort)) then sort = "latest" end
+    -- single-select genre: first slug with mode == 1
+    local incl = nil
+    for g, mode in pairs(filters.genres or {}) do
+      if mode == 1 or mode == true then incl = g; break end
+    end
+    local typ = (sort == "topview") and "topview" or ((sort == "newest") and "newest" or "latest")
+    local status = filters.status or "all"
+    if incl then
+      path = "/genre/" .. incl .. "?type=" .. typ .. "&state=" .. status .. "&page=" .. page
+    elseif status == "completed" then
+      path = "/manga-list/completed-manga?page=" .. page
+    else
+      local list = (typ == "topview") and "hot-manga" or ((typ == "newest") and "new-manga" or "latest-manga")
+      path = "/manga-list/" .. list .. "?page=" .. page
+    end
   end
   local r = http.get(BASE .. path, { referer = BASE .. "/" })
   return { items = parse_list(html.parse(r.body)), has_next = true }
@@ -188,8 +280,4 @@ end
 
 function url_for(id)
   return BASE .. "/manga/" .. id
-end
-
-function filters()
-  return {}
 end

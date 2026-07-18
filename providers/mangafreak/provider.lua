@@ -1,6 +1,6 @@
 -- @id mangafreak
 -- @name Mangafreak
--- @version 1.0.0
+-- @version 1.1.0
 -- @langs en
 -- @nsfw false
 -- @rate 4/1s
@@ -18,6 +18,43 @@
 
 local BASE = "https://ww2.mangafreak.me"
 local SRC_PER = 2 -- double-fetch to lift items/page over infinite-scroll threshold
+
+local function urlencode(s)
+  return (s:gsub("[^%w%-%.%_%~]", function(c) return string.format("%%%02X", c:byte()) end))
+end
+
+-- Filter surface (ported from server/providers/mangafreak.js).
+-- Genre filters only apply when combined with a search on this site, and the
+-- /Genre/<bitmask> path is bit-per-genre (57 bits) — impractical to model
+-- usefully, so expose a display list but don't wire genre params. Status + Type
+-- DO work (alongside a query) and are wired in search() below.
+local GENRES = { "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror",
+  "Martial Arts", "Mystery", "Romance", "School Life", "Sci Fi", "Seinen",
+  "Shoujo", "Shounen", "Slice of Life", "Supernatural" }
+-- Site status codes on the /Find path: 0=all, 1=completed, 2=ongoing.
+local STATUSES = {
+  { key = "all", label = "All" },
+  { key = "ongoing", label = "Ongoing" },
+  { key = "completed", label = "Completed" },
+}
+local STATUS_CODE = { all = "0", ongoing = "2", completed = "1" }
+-- Type is a single-select radio (extraMode). Site codes: 0=both, 1=manga, 2=manhwa.
+local EXTRA_MODES = {
+  { key = "type", label = "Type", default = "both", options = {
+    { key = "both", label = "Both" }, { key = "manga", label = "Manga" }, { key = "manhwa", label = "Manhwa" },
+  } },
+}
+local TYPE_CODE = { both = "0", manga = "1", manhwa = "2" }
+local GENRE_MASK = string.rep("0", 57) -- all-zeros = no genre filter; segment is structurally required
+local SORTS = { { key = "popular", label = "Popular" }, { key = "latest", label = "Latest" } }
+
+function meta()
+  return {
+    sorts = SORTS, statuses = STATUSES, genres = GENRES,
+    extraModes = EXTRA_MODES, -- Type radio (both/manga/manhwa) — applies with a search query
+    genreMode = "multi", multiChapter = true,
+  }
+end
 
 local function slug_from(href)
   return (href or ""):match("/Manga/([^/?#]+)")
@@ -102,10 +139,31 @@ function latest(page, opts)
 end
 
 function search(query, page, filters, opts)
+  filters = filters or {}
   local q = util.trim(query or "")
-  if q == "" then return popular(page, opts) end
-  local r = http.get(BASE .. "/Find/" .. q, { referer = BASE .. "/" })
+  local extras = filters.extras or {}
+  local type = extras.type or "both"
+  local status_code = STATUS_CODE[filters.status] or "0"
+  local type_code = TYPE_CODE[type] or "0"
+  local filtered = status_code ~= "0" or type_code ~= "0"
+  -- Filters ONLY apply on the /Find/<query>/... path and REQUIRE a query. So when
+  -- the user sets Status/Type but types no search text, inject a broad match-all
+  -- query ('a') so the filter still takes effect (verified: /Find/a/... honours
+  -- Status+Type). With neither query nor filter, use the popular grid.
+  if q == "" and not filtered then return popular(page, opts) end
+  local term = q ~= "" and q or "a"
+  -- Path is structurally rigid: /Find/<q>/Genre/<57bits>/Status/<s>/Type/<t>.
+  -- Keep the bare /Find/<q> form for an unfiltered text search.
+  local path
+  if filtered then
+    path = "/Find/" .. urlencode(term) .. "/Genre/" .. GENRE_MASK
+      .. "/Status/" .. status_code .. "/Type/" .. type_code
+  else
+    path = "/Find/" .. urlencode(term)
+  end
+  local r = http.get(BASE .. path, { referer = BASE .. "/" })
   local items = parse_search(html.parse(r.body))
+  -- The site's search/filter result is effectively single-page.
   return { items = items, has_next = false }
 end
 
@@ -211,8 +269,4 @@ end
 
 function url_for(id)
   return BASE .. "/Manga/" .. id
-end
-
-function filters()
-  return {}
 end

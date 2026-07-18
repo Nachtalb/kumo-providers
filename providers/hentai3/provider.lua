@@ -1,7 +1,7 @@
 -- @id hentai3
 -- @name Hentai3
--- @version 1.0.0
--- @langs en
+-- @version 1.1.0
+-- @langs en,ja,ko,zh,mo,es,pt,id,jv,tl,vi,th,my,tr,ru,uk,pl,fi,de,it,fr,nl,cs,hu,bg,is,la,ar
 -- @nsfw true
 -- @rate 2/1s
 -- @ua chrome
@@ -17,6 +17,54 @@
 
 local BASE = "https://3hentai.net"
 local REFERER = BASE .. "/"
+
+-- Language support (Hentai3.kt searchLang): browse one language at a time via
+-- /language/<name>/ paths and language:<name> search terms.
+local LANG_PATHS = {
+  en = "english", ja = "japanese", ko = "korean", zh = "chinese", mo = "mongolian",
+  es = "spanish", pt = "portuguese", id = "indonesian", jv = "javanese", tl = "tagalog",
+  vi = "vietnamese", th = "thai", my = "burmese", tr = "turkish", ru = "russian",
+  uk = "ukrainian", pl = "polish", fi = "finnish", de = "german", it = "italian",
+  fr = "french", nl = "dutch", cs = "czech", hu = "hungarian", bg = "bulgarian",
+  is = "icelandic", la = "latin", ar = "arabic",
+}
+local LANG_LABELS = {
+  en = "English", ja = "Japanese", ko = "Korean", zh = "Chinese", mo = "Mongolian",
+  es = "Spanish", pt = "Portuguese", id = "Indonesian", jv = "Javanese", tl = "Tagalog",
+  vi = "Vietnamese", th = "Thai", my = "Burmese", tr = "Turkish", ru = "Russian",
+  uk = "Ukrainian", pl = "Polish", fi = "Finnish", de = "German", it = "Italian",
+  fr = "French", nl = "Dutch", cs = "Czech", hu = "Hungarian", bg = "Bulgarian",
+  is = "Icelandic", la = "Latin", ar = "Arabic",
+}
+local SORTS = {
+  { key = "", label = "Recent" },
+  { key = "popular", label = "Popular: All Time" },
+  { key = "popular-7d", label = "Popular: Week" },
+  { key = "popular-24h", label = "Popular: Today" },
+}
+local GENRES = {
+  "big-breasts", "sole-female", "sole-male", "nakadashi", "anal", "group",
+  "schoolgirl-uniform", "glasses", "stockings", "blowjob", "ahegao", "yuri",
+  "futanari", "vanilla", "romance", "milf", "netorare", "incest", "harem",
+  "full-color", "story-arc", "comedy", "fantasy",
+}
+
+-- single-language site: use the first selected code (opts.langs)
+local function lang_path(opts)
+  local langs = opts and opts.langs
+  if type(langs) == "table" and #langs > 0 then return LANG_PATHS[langs[1]] or "" end
+  return ""
+end
+
+function meta()
+  local languages = {}
+  for code, _ in pairs(LANG_PATHS) do languages[#languages + 1] = { code = code, label = LANG_LABELS[code] or code } end
+  table.sort(languages, function(a, b) return a.label < b.label end)
+  return {
+    sorts = SORTS, genres = GENRES, genreMode = "multi", multiChapter = false,
+    languages = languages, defaultLangs = {},
+  }
+end
 
 local function urlencode(s)
   return (tostring(s):gsub("[^%w%-%.%_%~]", function(c)
@@ -57,17 +105,50 @@ local function list_page(url)
 end
 
 function popular(page, opts)
-  return list_page(BASE .. "/search?q=" .. urlencode("pages:>0") .. "&page=" .. page .. "&sort=popular")
+  local sort = (opts and opts.sort) or "popular"
+  local lp = lang_path(opts)
+  local url
+  if lp ~= "" then
+    url = BASE .. "/language/" .. lp .. "/" .. (page > 1 and page or "") .. "?sort=" .. urlencode(sort)
+  else
+    url = BASE .. "/search?q=" .. urlencode("pages:>0") .. "&page=" .. page .. "&sort=" .. urlencode(sort)
+  end
+  return list_page(url)
 end
 
 function latest(page, opts)
-  return list_page(BASE .. "/search?q=" .. urlencode("pages:>0") .. "&page=" .. page)
+  local lp = lang_path(opts)
+  local url
+  if lp ~= "" then
+    url = BASE .. "/language/" .. lp .. "/" .. page
+  else
+    url = BASE .. "/search?q=" .. urlencode("pages:>0") .. "&page=" .. page
+  end
+  return list_page(url)
 end
 
 function search(query, page, filters, opts)
-  local q = util.trim(query or "")
-  if q == "" then q = "pages:>0" end
-  return list_page(BASE .. "/search?q=" .. urlencode(q) .. "&page=" .. page)
+  filters = filters or {}
+  -- build tag terms with -exclude prefix (Hentai3.kt searchMangaRequest). 3hentai
+  -- tags are searched by their human name with SPACES, not the hyphen slug.
+  local terms = {}
+  for g, mode in pairs(filters.genres or {}) do
+    local name = (g:gsub("%-", " "))
+    if mode == 1 then terms[#terms + 1] = "tag:'" .. name .. "'"
+    elseif mode == -1 then terms[#terms + 1] = "-tag:'" .. name .. "'" end
+  end
+  -- language folds into the query string (Hentai3.kt: "$query $language $tags")
+  local lp = lang_path(opts)
+  if lp ~= "" then table.insert(terms, 1, "language:" .. lp) end
+  local q_parts = {}
+  local qt = util.trim(query or "")
+  if qt ~= "" then q_parts[#q_parts + 1] = qt end
+  for _, t in ipairs(terms) do q_parts[#q_parts + 1] = t end
+  local q = #q_parts > 0 and table.concat(q_parts, " ") or "pages:>0"
+  local sort = filters.sort or (opts and opts.sort)
+  local url = BASE .. "/search?q=" .. urlencode(q) .. "&page=" .. page
+  if sort and sort ~= "" then url = url .. "&sort=" .. urlencode(sort) end
+  return list_page(url)
 end
 
 function details(id, opts)
@@ -145,8 +226,4 @@ end
 
 function url_for(id)
   return BASE .. "/d/" .. id
-end
-
-function filters()
-  return {}
 end

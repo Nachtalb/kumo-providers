@@ -1,6 +1,6 @@
 -- @id mangaread
 -- @name MangaRead
--- @version 1.0.0
+-- @version 1.1.0
 -- @langs en
 -- @nsfw false
 -- @rate 4/1s
@@ -19,6 +19,43 @@
 
 local BASE = "https://www.mangaread.org"
 local AJAX = BASE .. "/wp-admin/admin-ajax.php"
+
+local function urlencode(s)
+  return (tostring(s):gsub("[^%w%-%.%_%~]", function(c)
+    return string.format("%%%02X", c:byte())
+  end))
+end
+
+-- Filter surface (ported from server/providers/mangaread.js).
+local SORTS = {
+  { key = "views", label = "Popularity" },
+  { key = "latest", label = "Latest" },
+  { key = "alphabet", label = "Title (A\u{2013}Z)" },
+  { key = "new-manga", label = "Recently added" },
+  { key = "rating", label = "Rating" },
+}
+local STATUSES = {
+  { key = "all", label = "All" },
+  { key = "on-going", label = "Ongoing" },
+  { key = "completed", label = "Completed" },
+  { key = "canceled", label = "Cancelled" },
+  { key = "on-hold", label = "On hold" },
+}
+local GENRES = {
+  "action", "adventure", "comedy", "drama", "fantasy", "harem", "historical",
+  "horror", "isekai", "josei", "martial-arts", "mature", "mystery",
+  "psychological", "romance", "school-life", "sci-fi", "seinen", "shoujo",
+  "shounen", "slice-of-life", "sports", "supernatural", "tragedy", "webtoons",
+  "manhua", "manhwa", "adult", "ecchi", "yaoi", "yuri", "smut",
+}
+local function is_sort(k)
+  for _, s in ipairs(SORTS) do if s.key == k then return true end end
+  return false
+end
+
+function meta()
+  return { sorts = SORTS, statuses = STATUSES, genres = GENRES, genreMode = "multi", multiChapter = true }
+end
 
 local function slug_from(href)
   return (href or ""):match("/manga/([^/?#]+)")
@@ -69,25 +106,39 @@ end
 -- Listing via the Madara search archive (GET). The card container is shared by
 -- the archive + search-results pages, so one parse handles both. (The chapter
 -- list — not this — is the piece that goes through admin-ajax.)
-local function listing(page, query, orderby)
-  local enc = (query or ""):gsub("[^%w]", function(c) return string.format("%%%02X", c:byte()) end)
-  local url = BASE .. "/page/" .. page .. "/?s=" .. enc
-    .. "&post_type=wp-manga&m_orderby=" .. (orderby or "views")
+-- Mirrors the old JS loadMore(): sort -> m_orderby, status -> &status[]=<key>
+-- (WP-manga meta status), genres -> &genre[]=<slug> for each INCLUDED (mode==1).
+local function listing(page, query, sort, status, genres)
+  if not is_sort(sort) then sort = "views" end
+  local url = BASE .. "/page/" .. page .. "/?s=" .. urlencode(query or "")
+    .. "&post_type=wp-manga&m_orderby=" .. sort
+  if status and status ~= "" and status ~= "all" then
+    url = url .. "&status[]=" .. urlencode(status)
+  end
+  for g, mode in pairs(genres or {}) do
+    if mode == 1 then url = url .. "&genre[]=" .. urlencode(tostring(g)) end
+  end
   local r = http.get(url, { referer = BASE .. "/" })
   local items = parse_cards(html.parse(r.body))
   return { items = items, has_next = #items >= 12 }
 end
 
 function popular(page, opts)
-  return listing(page, "", "views")
+  local sort = (opts and opts.sort and is_sort(opts.sort)) and opts.sort or "views"
+  return listing(page, "", sort, "all", nil)
 end
 
 function latest(page, opts)
-  return listing(page, "", "latest")
+  return listing(page, "", "latest", "all", nil)
 end
 
 function search(query, page, filters, opts)
-  return listing(page, util.trim(query or ""), "views")
+  filters = filters or {}
+  -- sort precedence: filters.sort, else opts.sort, else old JS default "views".
+  local sort = filters.sort
+  if not is_sort(sort) then sort = opts and opts.sort end
+  if not is_sort(sort) then sort = "views" end
+  return listing(page, util.trim(query or ""), sort, filters.status or "all", filters.genres)
 end
 
 -- Pull the numeric WP post id off the details page (Madara stashes it in a few
@@ -219,8 +270,4 @@ end
 
 function url_for(id)
   return BASE .. "/manga/" .. id .. "/"
-end
-
-function filters()
-  return {}
 end

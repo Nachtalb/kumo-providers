@@ -1,7 +1,7 @@
 -- @id hentaifox
 -- @name HentaiFox
--- @version 1.0.0
--- @langs en
+-- @version 1.1.0
+-- @langs en,ja,zh,ko
 -- @nsfw true
 -- @rate 2/1s
 -- @ua chrome
@@ -14,6 +14,35 @@
 --   gallery: /gallery/<id>/
 
 local BASE = "https://hentaifox.com"
+
+-- galleryadults language paths (first selected code only).
+local LANG_PATHS = { en = "english", ja = "japanese", zh = "chinese", ko = "korean" }
+local LANG_LABELS = { en = "English", ja = "Japanese", zh = "Chinese", ko = "Korean" }
+local SORTS = {
+  { key = "", label = "Popular" },
+  { key = "latest", label = "Latest" },
+}
+local GENRES = {
+  "big-breasts", "sole-female", "sole-male", "nakadashi", "anal", "group",
+  "stockings", "blowjob", "ahegao", "schoolgirl-uniform", "glasses", "yaoi",
+  "yuri", "futanari", "milf", "netorare", "incest", "harem", "full-color",
+  "multi-work-series", "comedy", "lolicon", "shotacon", "mind-break",
+}
+local function lang_path(opts)
+  local langs = opts and opts.langs
+  if type(langs) == "table" and #langs > 0 then return LANG_PATHS[langs[1]] or "" end
+  return ""
+end
+
+function meta()
+  local languages = {}
+  for code, _ in pairs(LANG_PATHS) do languages[#languages + 1] = { code = code, label = LANG_LABELS[code] or code } end
+  table.sort(languages, function(a, b) return a.label < b.label end)
+  return {
+    sorts = SORTS, genres = GENRES, genreMode = "single", multiChapter = false,
+    languages = languages, defaultLangs = {},
+  }
+end
 
 local function urlencode(s)
   return (tostring(s):gsub("[^%w%-%.%_%~]", function(c)
@@ -58,17 +87,43 @@ local function list_page(url)
 end
 
 function popular(page, opts)
+  -- galleryadults: /language/<name>/popular/pag/<n>/ when a language is chosen
+  local lp = lang_path(opts)
+  if lp ~= "" then
+    return list_page(BASE .. "/language/" .. lp .. "/popular/" .. (page > 1 and ("pag/" .. page .. "/") or ""))
+  end
   return list_page(BASE .. "/?page=" .. page)
 end
 
 function latest(page, opts)
+  local lp = lang_path(opts)
+  if lp ~= "" then
+    return list_page(BASE .. "/language/" .. lp .. "/" .. (page > 1 and ("pag/" .. page .. "/") or ""))
+  end
+  -- home feed is newest-first already; reuse it
   return list_page(BASE .. "/?page=" .. page)
 end
 
 function search(query, page, filters, opts)
-  local q = util.trim(query or "")
-  if q == "" then return popular(page, opts) end
-  return list_page(BASE .. "/search/?q=" .. urlencode(q) .. "&page=" .. page)
+  filters = filters or {}
+  -- single-genre-mode: collect included genre slugs
+  local incl = {}
+  for g, mode in pairs(filters.genres or {}) do
+    if mode == 1 then incl[#incl + 1] = g end
+  end
+  local lp = lang_path(opts)
+  local qt = util.trim(query or "")
+  -- one genre chosen, no text, no language -> the /tag/<slug>/ browse path
+  if qt == "" and #incl == 1 and lp == "" then
+    return list_page(BASE .. "/tag/" .. incl[1] .. "/pag/" .. page .. "/")
+  end
+  -- otherwise fold text + genres + language into the search terms
+  local terms = {}
+  local base_term = qt ~= "" and qt or table.concat(incl, " ")
+  if base_term ~= "" then terms[#terms + 1] = base_term end
+  if lp ~= "" then terms[#terms + 1] = lp end
+  local q = urlencode(table.concat(terms, " "))
+  return list_page(BASE .. "/search/?q=" .. q .. "&page=" .. page)
 end
 
 function details(id, opts)
@@ -134,8 +189,4 @@ end
 
 function url_for(id)
   return BASE .. "/gallery/" .. id .. "/"
-end
-
-function filters()
-  return {}
 end

@@ -1,6 +1,6 @@
 -- @id manhuaplus
 -- @name Manhua Plus
--- @version 1.0.0
+-- @version 1.1.0
 -- @langs en
 -- @nsfw false
 -- @rate 3/1s
@@ -23,6 +23,52 @@ local function urlencode(s)
   return (tostring(s):gsub("[^%w%-%.%_%~]", function(c)
     return string.format("%%%02X", c:byte())
   end))
+end
+
+-- Filter surface (ported from server/providers/manhuaplus.js module.exports).
+-- ?sort= values verified live on /all-manga.
+local SORTS = {
+  { key = "views", label = "Popularity" },
+  { key = "latest-updated", label = "Latest" },
+  { key = "views_day", label = "Popular (day)" },
+  { key = "views_week", label = "Popular (week)" },
+  { key = "views_month", label = "Popular (month)" },
+  { key = "score", label = "Rating" },
+  { key = "bookmarks", label = "Bookmarks" },
+  { key = "release-date", label = "Recently added" },
+}
+local STATUSES = {
+  { key = "all", label = "All" },
+  { key = "on-going", label = "Ongoing" },
+  { key = "completed", label = "Completed" },
+  { key = "on-hold", label = "On Hold" },
+  { key = "canceled", label = "Cancelled" },
+}
+-- Site status codes for the /filter route (empty = all). /genres/<slug> ignores
+-- status, so status filtering always routes through /filter.
+local STATUS_CODE = {
+  ["all"] = "", ["on-going"] = "on-going", ["completed"] = "completed",
+  ["on-hold"] = "on-hold", ["canceled"] = "canceled",
+}
+local GENRES = {
+  "action", "adaptation", "adult", "adventure", "comedy", "cooking",
+  "crime", "drama", "ecchi", "fantasy", "fighting", "harem", "historical",
+  "horror", "isekai", "martial-arts", "mature", "mystery", "romance",
+  "school-life", "sci-fi", "seinen", "shounen", "slice-of-life", "supernatural",
+}
+local function is_sort(k)
+  for _, s in ipairs(SORTS) do if s.key == k then return true end end
+  return false
+end
+
+function meta()
+  return {
+    sorts = SORTS,
+    statuses = STATUSES,
+    genres = GENRES,
+    genreMode = "single",
+    multiChapter = true,
+  }
 end
 
 local function slug_from(href)
@@ -51,22 +97,47 @@ local function parse_cards(doc)
   return out
 end
 
-local function listing(page, sort)
-  local url = BASE .. "/all-manga/" .. (page or 1) .. "/?sort=" .. (sort or "views")
-  local r = http.get(url, { referer = BASE .. "/" })
+-- Listing builder, mirrors the old JS listing(). One selected genre routes to
+-- /genres/<slug> (the only route that filters by genre; /filter?genres= is
+-- ignored by the site). A status filter with no genre routes to /filter (the
+-- only route that honours status). Neither -> /all-manga.
+local function listing(page, sort, status, genres)
+  page = page or 1
+  local key = is_sort(sort) and sort or "views"
+  local status_code = STATUS_CODE[status]
+  if status_code == nil then status_code = "" end
+  local gslug = nil
+  if genres then
+    for g, mode in pairs(genres) do
+      if mode == 1 or mode == true then gslug = g; break end
+    end
+  end
+  local path
+  if gslug then
+    path = "/genres/" .. urlencode(gslug) .. "/" .. page .. "/?sort=" .. key
+  elseif status_code ~= "" then
+    path = "/filter/" .. page .. "/?genres=&notGenres=&sex=All&chapter_count=0&status=" .. status_code .. "&sort=" .. key
+  else
+    path = "/all-manga/" .. page .. "/?sort=" .. key
+  end
+  local r = http.get(BASE .. path, { referer = BASE .. "/" })
   local doc = html.parse(r.body or "")
   local items = parse_cards(doc)
-  -- has_next: any pagination link with a higher page number
+  -- has_next: any listing/genre/filter/pagination link with a higher page number
   local has_next = false
-  for _, a in ipairs(doc:select('a[href*="/all-manga/"]')) do
-    local n = tonumber((a:attr("href") or ""):match("/all%-manga/(%d+)"))
-    if n and n > (page or 1) then has_next = true end
+  for _, a in ipairs(doc:select('a[href*="/all-manga/"], a[href*="/genres/"], a[href*="/filter/"], .pagination a')) do
+    local href = a:attr("href") or ""
+    local n = tonumber(href:match("/all%-manga/(%d+)"))
+      or tonumber(href:match("/filter/(%d+)"))
+      or tonumber(href:match("/genres/[^/]+/(%d+)"))
+    if n and n > page then has_next = true end
   end
   return { items = items, has_next = has_next }
 end
 
 function popular(page, opts)
-  return listing(page, "views")
+  local sort = (opts and is_sort(opts.sort)) and opts.sort or "views"
+  return listing(page, sort)
 end
 
 function latest(page, opts)
@@ -75,10 +146,17 @@ end
 
 function search(query, page, filters, opts)
   local q = util.trim(query or "")
-  if q == "" then return listing(page, "views") end
-  local r = http.get(BASE .. "/?q=" .. urlencode(q), { referer = BASE .. "/" })
-  local doc = html.parse(r.body or "")
-  return { items = parse_cards(doc), has_next = false }
+  if q ~= "" then
+    local r = http.get(BASE .. "/?q=" .. urlencode(q), { referer = BASE .. "/" })
+    local doc = html.parse(r.body or "")
+    return { items = parse_cards(doc), has_next = false }
+  end
+  filters = filters or {}
+  -- sort precedence: filters.sort, else opts.sort, else the old JS default 'views'.
+  local sort = filters.sort
+  if not (sort and is_sort(sort)) then sort = opts and opts.sort end
+  if not (sort and is_sort(sort)) then sort = "views" end
+  return listing(page, sort, filters.status, filters.genres)
 end
 
 local function parse_status(t)
@@ -189,8 +267,4 @@ end
 
 function url_for(id)
   return BASE .. "/manga/" .. id
-end
-
-function filters()
-  return {}
 end

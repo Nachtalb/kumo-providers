@@ -1,6 +1,6 @@
 -- @id flamecomics
 -- @name Flame Comics
--- @version 1.0.0
+-- @version 1.1.0
 -- @langs en
 -- @nsfw false
 -- @rate 2/1s
@@ -20,6 +20,29 @@ local BASE = "https://flamecomics.xyz"
 local CDN = "https://cdn.flamecomics.xyz"
 local REFERER = BASE .. "/"
 local PER = 24
+
+-- Filter surface (ported from server/providers/flamecomics.js). Browse has no
+-- server-side sort we can pass via a plain page fetch, so sorts are client-side
+-- orderings applied to the full /browse catalog; status/genres filter in memory.
+local SORTS = {
+  { key = "", label = "Default" },
+  { key = "title", label = "Title" },
+  { key = "likes", label = "Most liked" },
+}
+local STATUSES = {
+  { key = "all", label = "All" },
+  { key = "ongoing", label = "Ongoing" },
+  { key = "completed", label = "Completed" },
+  { key = "hiatus", label = "Hiatus" },
+  { key = "dropped", label = "Dropped" },
+}
+-- Small common set — Flame's tags are freeform; genreMode multi but we filter
+-- client-side against series.categories/tags when provided.
+local GENRES = { "action", "fantasy", "romance", "drama", "comedy" }
+
+function meta()
+  return { sorts = SORTS, statuses = STATUSES, genres = GENRES, genreMode = "multi", multiChapter = true }
+end
 
 local function urlencode(s)
   return (tostring(s):gsub("[^%w%-%.%_%~]", function(c)
@@ -115,6 +138,7 @@ function latest(page, opts)
 end
 
 function search(query, page, filters, opts)
+  filters = filters or {}
   local series = fetch_browse_series()
   local q = (query or ""):lower():gsub("[^a-z0-9]+", "")
   if q ~= "" then
@@ -133,7 +157,42 @@ function search(query, page, filters, opts)
     end
     series = filtered
   end
-  return paginate(series, page)
+  -- status filter: series.status lowercased == status (when not "all")
+  local status = filters.status
+  if status and status ~= "" and status ~= "all" then
+    local sl = status:lower()
+    local filtered = {}
+    for _, s in ipairs(series) do
+      if (s.status or ""):lower() == sl then filtered[#filtered + 1] = s end
+    end
+    series = filtered
+  end
+  -- optional multi-genre filter against categories/tags (best-effort): every
+  -- included (mode==1) genre must substring-match some tag.
+  local wanted = {}
+  for g, mode in pairs(filters.genres or {}) do
+    if mode == 1 then wanted[#wanted + 1] = tostring(g):lower() end
+  end
+  if #wanted > 0 then
+    local filtered = {}
+    for _, s in ipairs(series) do
+      local tags = {}
+      for _, t in ipairs(s.categories or {}) do tags[#tags + 1] = tostring(t):lower() end
+      for _, t in ipairs(s.tags or {}) do tags[#tags + 1] = tostring(t):lower() end
+      local ok = true
+      for _, w in ipairs(wanted) do
+        local found = false
+        for _, t in ipairs(tags) do if t:find(w, 1, true) then found = true break end end
+        if not found then ok = false break end
+      end
+      if ok then filtered[#filtered + 1] = s end
+    end
+    series = filtered
+  end
+  -- sort precedence: filters.sort, else opts.sort, else old JS default ("").
+  local sort = filters.sort
+  if not sort or sort == "" then sort = opts and opts.sort or "" end
+  return paginate(sort_series(series, sort), page)
 end
 
 function details(id, opts)
@@ -215,8 +274,4 @@ end
 
 function url_for(id)
   return BASE .. "/series/" .. id
-end
-
-function filters()
-  return {}
 end

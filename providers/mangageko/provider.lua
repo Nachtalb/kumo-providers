@@ -1,6 +1,6 @@
 -- @id mangageko
 -- @name MangaGeko
--- @version 1.0.0
+-- @version 1.1.0
 -- @langs en
 -- @nsfw false
 -- @rate 3/1s
@@ -22,6 +22,57 @@
 -- lazy (data-src before src). The host namespaces "mangageko:" around each call.
 
 local BASE = "https://www.mgeko.cc"
+
+local function urlencode(s)
+  return (s:gsub("[^%w%-%.%_%~]", function(c) return string.format("%%%02X", c:byte()) end))
+end
+
+-- Filter surface (ported from server/providers/mangageko.js).
+local SORTS = {
+  { key = "popular_all_time", label = "Popular (all time)" },
+  { key = "popular_monthly", label = "Popular (month)" },
+  { key = "popular_weekly", label = "Popular (week)" },
+  { key = "popular_daily", label = "Popular (day)" },
+  { key = "latest", label = "Latest update" },
+  { key = "recently_added", label = "Recently added" },
+  { key = "rating", label = "Top rated" },
+  { key = "az", label = "Title (A\u{2013}Z)" },
+  { key = "za", label = "Title (Z\u{2013}A)" },
+}
+local STATUSES = {
+  { key = "all", label = "All" },
+  { key = "ongoing", label = "Ongoing" },
+  { key = "completed", label = "Completed" },
+  { key = "hiatus", label = "Hiatus" },
+}
+-- Type is a single-select radio (extraMode): manga/manhwa/manhua/webtoon.
+local EXTRA_MODES = {
+  { key = "type", label = "Type", default = "any", options = {
+    { key = "any", label = "Any" }, { key = "manga", label = "Manga" },
+    { key = "manhwa", label = "Manhwa" }, { key = "manhua", label = "Manhua" },
+    { key = "webtoon", label = "Webtoon" },
+  } },
+}
+-- Full include/exclude tri-state genre catalog pulled live from /browse-comics/.
+local GENRES = { "Action", "Adventure", "Comedy", "Cooking", "Drama", "Fantasy",
+  "Gender bender", "Harem", "Historical", "Horror", "Isekai", "Josei",
+  "Manhua", "Manhwa", "Martial arts", "Mature", "Mecha", "Medical", "Mystery",
+  "One shot", "Psychological", "Romance", "School life", "Sci fi", "Seinen",
+  "Shoujo", "Shounen", "Slice of life", "Sports", "Supernatural", "Tragedy",
+  "Webtoons" }
+
+local function is_sort(k)
+  for _, s in ipairs(SORTS) do if s.key == k then return true end end
+  return false
+end
+
+function meta()
+  return {
+    sorts = SORTS, statuses = STATUSES, genres = GENRES,
+    extraModes = EXTRA_MODES, -- Type radio (manga/manhwa/manhua/webtoon)
+    genreMode = "multi", multiChapter = true, -- tri-state: include (1) / exclude (-1)
+  }
+end
 
 local function slug_from(href)
   return (href or ""):match("/manga/([^/?#]+)")
@@ -52,17 +103,35 @@ local function parse_comic_cards(doc)
   return out
 end
 
-local function browse(page, sort)
-  local url = BASE .. "/browse-comics/data/?page=" .. (page or 1)
-    .. "&sort=" .. (sort or "popular_all_time") .. "&safe_mode=0"
-  local r = http.get(url, { referer = BASE .. "/browse-comics/" })
+-- Build the browse listing query, mirroring the old JS browse(): sort, status,
+-- type extra, and tri-state genres (include_genres / exclude_genres).
+local function browse(o)
+  o = o or {}
+  local sort = is_sort(o.sort) and o.sort or "popular_all_time"
+  local q = "page=" .. (o.page or 1)
+    .. "&sort=" .. sort
+    .. "&safe_mode=0"
+  if o.status and o.status ~= "" and o.status ~= "all" then
+    q = q .. "&status=" .. urlencode(o.status)
+  end
+  local type = o.extras and o.extras.type
+  if type and type ~= "any" then q = q .. "&type=" .. urlencode(type) end
+  -- tri-state genres: {slug:1} include, {slug:-1} exclude (site supports both)
+  local inc, exc = {}, {}
+  for g, mode in pairs(o.genres or {}) do
+    if mode == 1 or mode == true then inc[#inc + 1] = g
+    elseif mode == -1 then exc[#exc + 1] = g end
+  end
+  if #inc > 0 then q = q .. "&include_genres=" .. urlencode(table.concat(inc, ",")) end
+  if #exc > 0 then q = q .. "&exclude_genres=" .. urlencode(table.concat(exc, ",")) end
+  local r = http.get(BASE .. "/browse-comics/data/?" .. q, { referer = BASE .. "/browse-comics/" })
   local ok, data = pcall(json.parse, r.body)
   if not ok or not data then data = {} end
   local doc = html.parse(data.results_html or "")
   local items = parse_comic_cards(doc)
   local has_next
   if data.num_pages ~= nil then
-    has_next = (data.page or page or 1) < data.num_pages
+    has_next = (data.page or o.page or 1) < data.num_pages
   else
     has_next = #items >= 12
   end
@@ -70,18 +139,18 @@ local function browse(page, sort)
 end
 
 function popular(page, opts)
-  return browse(page, "popular_all_time")
+  local sort = (opts and is_sort(opts.sort)) and opts.sort or "popular_all_time"
+  return browse({ page = page, sort = sort })
 end
 
 function latest(page, opts)
-  return browse(page, "latest")
+  return browse({ page = page, sort = "latest" })
 end
 
 function search(query, page, filters, opts)
+  filters = filters or {}
   if query and query ~= "" then
-    local q = query:gsub("[^%w%-%.%_%~]", function(c)
-      return string.format("%%%02X", c:byte())
-    end)
+    local q = urlencode(query)
     local r = http.get(BASE .. "/search/?search=" .. q .. "&results=" .. (page or 1),
       { referer = BASE .. "/" })
     local doc = html.parse(r.body)
@@ -103,7 +172,15 @@ function search(query, page, filters, opts)
     local has_next = doc:first('nav.paging a:contains("Next")') ~= nil
     return { items = out, has_next = has_next }
   end
-  return browse(page, "popular_all_time")
+  -- No query → filtered browse. Sort precedence: filters.sort, else opts.sort,
+  -- else the provider default (popular_all_time).
+  local sort = filters.sort
+  if not (sort and is_sort(sort)) then sort = opts and opts.sort end
+  if not (sort and is_sort(sort)) then sort = "popular_all_time" end
+  return browse({
+    page = page, sort = sort, status = filters.status,
+    genres = filters.genres, extras = filters.extras,
+  })
 end
 
 function details(id, opts)
@@ -212,8 +289,4 @@ end
 
 function url_for(id)
   return BASE .. "/manga/" .. id .. "/"
-end
-
-function filters()
-  return {}
 end
