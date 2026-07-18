@@ -128,6 +128,7 @@ def main() -> int:
             "version": meta.get("version") or "0.0.0",
             "langs": split_langs(meta.get("langs")),
             "nsfw": to_bool(meta.get("nsfw")),
+            "website": meta.get("website") or meta.get("base") or "",
             "requires_verification": "verify" in meta,
             "created": created,
             "updated": updated,
