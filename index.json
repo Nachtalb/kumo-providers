@@ -4,16 +4,16 @@
     {
       "id": "asuracomic",
       "name": "Asura Scans",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
         "en"
       ],
       "nsfw": false,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/asuracomic/provider.lua",
-      "sha256": "5c208f28262c1ba70f2cf0e76f91b66cb51c9272d29f94292cdbec85ea469bb1",
+      "sha256": "b02f4653c8ea81d0c9bf17992bbb884cace5be045dbef440248039dd570f41fd",
       "icon": "providers/asuracomic/icon.avif",
       "icon_sha256": "b7d632408b2a825200204552f000b3894e71778368d620e235850b57e01548e1",
       "ua_hint": "chrome"
@@ -21,16 +21,16 @@
     {
       "id": "dynasty",
       "name": "Dynasty Scans",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
         "en"
       ],
       "nsfw": false,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/dynasty/provider.lua",
-      "sha256": "0ef885351a70190b2c409bc8a955f9d73b244df1b075f88385fd5b1ee792edca",
+      "sha256": "22fd172a1232357920bf7d939085efaeb434b4646ef4bd682544fcd487d21ad3",
       "icon": "providers/dynasty/icon.avif",
       "icon_sha256": "11d37a28945efdef1885e6f7440c2c5393e2ade98e317a515673379cb220e2a7",
       "ua_hint": "chrome"
@@ -38,16 +38,16 @@
     {
       "id": "flamecomics",
       "name": "Flame Comics",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
         "en"
       ],
       "nsfw": false,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/flamecomics/provider.lua",
-      "sha256": "f2b41428f6dda3a6ce8b41f3f191b84d02bb78996c3574a76944f5026f2f391d",
+      "sha256": "8bf2e3db80820ba2cb105136d74ef3c647be17968dce5ed63cea0c7ba3c9e56d",
       "icon": "providers/flamecomics/icon.avif",
       "icon_sha256": "1afdff154124fcdf062ec23bf5b455a83e9570e328c6b1da0f7be440d5f2b54d",
       "ua_hint": "chrome"
@@ -55,16 +55,43 @@
     {
       "id": "hentai3",
       "name": "Hentai3",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
-        "en"
+        "en",
+        "ja",
+        "ko",
+        "zh",
+        "mo",
+        "es",
+        "pt",
+        "id",
+        "jv",
+        "tl",
+        "vi",
+        "th",
+        "my",
+        "tr",
+        "ru",
+        "uk",
+        "pl",
+        "fi",
+        "de",
+        "it",
+        "fr",
+        "nl",
+        "cs",
+        "hu",
+        "bg",
+        "is",
+        "la",
+        "ar"
       ],
       "nsfw": true,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/hentai3/provider.lua",
-      "sha256": "1c97abc7d59fbaa24eaa797deb243e7c4a4435df627b6f8927d1b61f38dc1bb1",
+      "sha256": "d7f0bc7e223e112c53bb5bb386c9147c697b850d6b1e8f83754dcf94b3f24cdf",
       "icon": "providers/hentai3/icon.avif",
       "icon_sha256": "cee3bb4d5e79b07a809c05983dda1097b507c1fae1a06a3b0ef5030e3d5a8551",
       "ua_hint": "chrome"
@@ -72,16 +99,19 @@
     {
       "id": "hentaifox",
       "name": "HentaiFox",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
-        "en"
+        "en",
+        "ja",
+        "zh",
+        "ko"
       ],
       "nsfw": true,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/hentaifox/provider.lua",
-      "sha256": "ef0f035630d2db91133b8c40d7d44288797c38c07b6e701e4a01915499696efe",
+      "sha256": "837fbca57a915ae7f9fa4ad19f5aecd1050145e4447ac064dd68736fd428684e",
       "icon": "providers/hentaifox/icon.avif",
       "icon_sha256": "6c0362e56fe7a6776590e406963b82f03f4bd95af2b5b23a1364709507208474",
       "ua_hint": "chrome"
@@ -89,16 +119,22 @@
     {
       "id": "imhentai",
       "name": "IMHentai",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
-        "en"
+        "en",
+        "ja",
+        "es",
+        "fr",
+        "ko",
+        "de",
+        "ru"
       ],
       "nsfw": true,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/imhentai/provider.lua",
-      "sha256": "cfee9621ffa591a3f5c0f32686a857d59e664299d75a4e7b70c15cb5fcfb9048",
+      "sha256": "0f157b84ba1f55ea79118f3a6ab23d65fb8947c2c6c55b0e5e99c81d3dbfed7b",
       "icon": "providers/imhentai/icon.avif",
       "icon_sha256": "fc70080388b76e661661f5d38ea85de3e2d2a2bdf0603c27495a0d7580fd3785",
       "ua_hint": "chrome"
@@ -106,16 +142,16 @@
     {
       "id": "mangabuddy",
       "name": "MangaK",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
         "en"
       ],
       "nsfw": false,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/mangabuddy/provider.lua",
-      "sha256": "d5fd1c1149beb5feaa1890b4d2d107e58ca78f3a78b6646ad09d3d436abd1ebe",
+      "sha256": "00b1ee58f1f2f6cf7319da643b6ee5e18f29eaf99f970776881f1572eeb3e3f5",
       "icon": "providers/mangabuddy/icon.avif",
       "icon_sha256": "8b2d03ce6725c9d32e0afced54d3992511fd8a5e7bc0b7fe03b94864cb629a77",
       "ua_hint": "chrome"
@@ -146,7 +182,7 @@
       "nsfw": false,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:14:44+02:00",
       "url": "providers/mangadex/provider.lua",
       "sha256": "e81b4eb75475e92f423bdb0126336de292e8572f85132277f97e9de5addbc83c",
       "icon": "providers/mangadex/icon.avif",
@@ -156,16 +192,16 @@
     {
       "id": "mangafreak",
       "name": "Mangafreak",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
         "en"
       ],
       "nsfw": false,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/mangafreak/provider.lua",
-      "sha256": "ca1efa819947c2a906ce9f3cfd42be128989685373907fe7a8430b63fb429974",
+      "sha256": "b0f2924d86359bd3d90bec30a761ca33f9b4320fe74521933c4484a0bee813fe",
       "icon": "providers/mangafreak/icon.avif",
       "icon_sha256": "f0d2f3c40ca4dffbedd8f3c1a4e5d10a35b4a2be59d3079123e66ec7d6f2e826",
       "ua_hint": "chrome"
@@ -173,16 +209,16 @@
     {
       "id": "mangageko",
       "name": "MangaGeko",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
         "en"
       ],
       "nsfw": false,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/mangageko/provider.lua",
-      "sha256": "64a8b0d2f3156da40f3c8b5508f6dbc4df674fe3722fdcec808c83fab6dc6432",
+      "sha256": "48c5adcd112fef79e98db38539a28b5bab9237afa908f3ac3c83c1c47cfe780a",
       "icon": "providers/mangageko/icon.avif",
       "icon_sha256": "ece14742e0b87a4b0d424d0e868baccdaf672f70b9bc524396fffcd343a248fb",
       "ua_hint": "chrome"
@@ -190,16 +226,16 @@
     {
       "id": "mangakakalot",
       "name": "Mangakakalot",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
         "en"
       ],
       "nsfw": false,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/mangakakalot/provider.lua",
-      "sha256": "e8183707a84e90729345270ad8fe5a36466f6e947b4410a215dd8ee6289d71ab",
+      "sha256": "cf4c8f84f855ffe45f3f1c89e284f432ee6c3eda60a2e7349e894708e48b200b",
       "icon": "providers/mangakakalot/icon.avif",
       "icon_sha256": "b8cc83dd965e6a8575c71cc77d4f1fbb9783c4e230f125d8c046ee9d2fc41a89",
       "ua_hint": "chrome"
@@ -207,16 +243,16 @@
     {
       "id": "mangapill",
       "name": "Mangapill",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
         "en"
       ],
       "nsfw": false,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/mangapill/provider.lua",
-      "sha256": "b66250e896d40d77e48e2998b2909bb9fe193696a4fe5dda84119581737a8e3b",
+      "sha256": "52fbf8d5cae87b5a31112eb8d17850b1ced25944ebd3a5bc7862a8fac84769cb",
       "icon": "providers/mangapill/icon.avif",
       "icon_sha256": "f1e12345a097804fce112391989eea71a54620ae834ee3eaf23121095b46b0c3",
       "ua_hint": "chrome"
@@ -224,16 +260,16 @@
     {
       "id": "mangaread",
       "name": "MangaRead",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
         "en"
       ],
       "nsfw": false,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/mangaread/provider.lua",
-      "sha256": "1757acc045019da58c4a072f1cbde974b5d8640ae7a56763bbcc920841249a89",
+      "sha256": "65a4902f42cec661bb38d068f67919280af55f2a554f0bf765f9353c60b5e833",
       "icon": "providers/mangaread/icon.avif",
       "icon_sha256": "9589629d13a02de685187357e0c31e850c7815cd07932906c1247d40d8433648",
       "ua_hint": "chrome"
@@ -241,16 +277,16 @@
     {
       "id": "manhuaplus",
       "name": "Manhua Plus",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
         "en"
       ],
       "nsfw": false,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/manhuaplus/provider.lua",
-      "sha256": "527259b62203e3925614aeee8e07df76a5e9fb357e2b36566fc953060aceb7d2",
+      "sha256": "ff46715c01202322c5a7eac18e2503636d3ddb9c74cefaf8bc7c9952007d1df1",
       "icon": "providers/manhuaplus/icon.avif",
       "icon_sha256": "8b722aae5a90cf9326cd7b36cbfe7eafa28067ac8df0dedffaee210296e9a1be",
       "ua_hint": "chrome"
@@ -258,16 +294,18 @@
     {
       "id": "nhentai",
       "name": "nhentai",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
-        "en"
+        "en",
+        "ja",
+        "zh"
       ],
       "nsfw": true,
       "requires_verification": false,
       "created": "2026-07-18T17:18:04+02:00",
-      "updated": "2026-07-18T17:18:04+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/nhentai/provider.lua",
-      "sha256": "c89f03cbd9fec9bab5bac25af14127926fbed1b096ab3aca38831e6386dd7325",
+      "sha256": "b57b61a1b7a2d6e3d27e9b10885c3f0144e62b45c72150c99096b08d7e822f9f",
       "icon": "providers/nhentai/icon.avif",
       "icon_sha256": "75c3d75bf03a08ae1b77d65d7974ba1e6b195a18724b2b9e4dd31c57993d70af",
       "ua_hint": "chrome"
@@ -275,16 +313,16 @@
     {
       "id": "weebcentral",
       "name": "Weeb Central",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "langs": [
         "en"
       ],
       "nsfw": false,
       "requires_verification": false,
       "created": "2026-07-17T01:10:01+02:00",
-      "updated": "2026-07-17T01:10:01+02:00",
+      "updated": "2026-07-18T21:36:29+02:00",
       "url": "providers/weebcentral/provider.lua",
-      "sha256": "e1d403df255ad1deef017cc5f12bcb1324eccec4a2fadaf9ac3030b4c3ab4dc4",
+      "sha256": "b4422902cc1f2c8a79bdb6c61c9da6b657d223d48dc35c3a4fa58756fc6a5021",
       "icon": "providers/weebcentral/icon.avif",
       "icon_sha256": "3d5788efa7d26e17e57649ef778be7ffad4198d677c5f0ecade8bd0504155f3f",
       "ua_hint": "chrome"
