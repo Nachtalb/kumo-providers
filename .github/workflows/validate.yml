@@ -7,9 +7,9 @@ on:
 jobs:
   validate:
     # GitHub-hosted (ubuntu-latest): this repo has no self-hosted runner (those
-    # are scoped to Nachtalb/kumo), and the job is a trivial ~1-min Node index
-    # check — cheap enough to run on GitHub. Doubles as a live probe of whether
-    # the Actions budget has cleared.
+    # are scoped to Nachtalb/kumo), and the job is a trivial ~1-min index check —
+    # cheap enough to run on GitHub. Doubles as a live probe of whether the
+    # Actions budget has cleared. Python 3 ships on the runner; no setup needed.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -17,21 +17,16 @@ jobs:
           # full history so the index generator can read git created/updated dates
           fetch-depth: 0
 
-      - name: Set up Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-
       - name: Regenerate index.json
-        run: node scripts/build-index.mjs
+        run: python3 scripts/build-index.py
 
       - name: Validate index.json is JSON
-        run: node -e 'JSON.parse(require("fs").readFileSync("index.json"))'
+        run: python3 -c 'import json; json.load(open("index.json"))'
 
       - name: Fail if index.json is out of date
         run: |
           git diff --exit-code index.json \
-            || { echo "::error::index.json is stale — run 'node scripts/build-index.mjs' and commit the result"; exit 1; }
+            || { echo "::error::index.json is stale — run 'python3 scripts/build-index.py' and commit the result"; exit 1; }
 
       # TODO: load each provider.lua in the kumo-core sandbox + validate contract/schema against recorded fixtures
       # The sandbox validation binary (kumo-core) does not exist yet. When it

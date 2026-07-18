@@ -8,7 +8,7 @@ get pure Lua plus the host functions documented here; that is the whole world.
 
 A provider lives at `providers/<id>/provider.lua`. The directory name **must**
 equal the script's `-- @id`. Ship a square `icon.avif` and a short `readme.md`
-next to it, then regenerate the manifest with `node scripts/build-index.mjs`.
+next to it, then regenerate the manifest with `python3 scripts/build-index.py`.
 
 ---
 
@@ -413,4 +413,4 @@ end
 - [ ] Chapters newest-first; `status` in the fixed vocab; dates ISO via `util.date_parse`.
 - [ ] Every `cover` / `url` / `pages[]` is absolute https (via `util.abs_url`).
 - [ ] `providers/<id>/icon.avif` (square) and `providers/<id>/readme.md`.
-- [ ] Ran `node scripts/build-index.mjs` and committed the updated `index.json`.
+- [ ] Ran `python3 scripts/build-index.py` and committed the updated `index.json`.
